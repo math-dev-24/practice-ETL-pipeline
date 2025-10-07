@@ -4,6 +4,8 @@ Actuellement tu charges vers SQLite
 Comment exporter aussi vers JSON ? CSV formaté ? Excel ?
 Méthode .save_as(format) ?
 
+TODO : Reste JSON et CSV Attention au Finalyse !
+
 5. Pipeline réutilisable / Configurable
 
 Créer des "recettes" de pipeline qu'on peut sauvegarder
