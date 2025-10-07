@@ -1,18 +1,15 @@
-mod storage;
+mod adapter;
 mod models;
 mod utils;
 
-use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use crate::models::csv_multi_reader::MultiCsvReader;
-use crate::models::error::ValidationError;
-use crate::storage::sqlite::Database;
+use indicatif::{ProgressBar, ProgressStyle};
+use crate::adapter::storage_output::sqlite::SqliteAdapter;
+use crate::models::output::OutputPort;
 use crate::models::user::User;
-use crate::models::pipeline::{Pipeline};
 use crate::utils::capitalize::capitalize;
 use crate::utils::multi_extract::{multi_extract, multi_extract_streaming};
 use crate::utils::set_user::generate_user;
-// 12-14 sec de traitements
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 
@@ -30,8 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut time_start = Instant::now();
 
-    let db_normal = Database::new("./output_normal.db");
-    db_normal.init()?;
+    let mut db_normal = SqliteAdapter::new("./output_normal.db")?;
 
     let merged_pipeline = multi_extract(&paths)?;
 
@@ -53,7 +49,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         });
 
-    db_normal.insert_user(&pipeline.data)?;
+    let chunk_size_bar = 1000;
+    let pb = ProgressBar::new(pipeline.data.len() as u64);
+
+    pb.set_style(ProgressStyle::default_bar()
+        .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} {msg}")
+        .unwrap()
+        .progress_chars("█▓▒░ ")
+    );
+
+    for chunk in pipeline.data.chunks(chunk_size_bar) {
+        db_normal.write(chunk)?;
+        pb.inc(chunk.len() as u64);
+        pb.set_message(format!("Inserting {} chunks", chunk_size_bar));
+    }
+
+    pb.finish_with_message("✓ Done!");
 
     println!("Elapsed time: {:?}", time_start.elapsed());
     println!("Stat normal : {:?}", pipeline.stats);
@@ -63,8 +74,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Cas Chunk
     time_start = Instant::now();
 
-    let db_streaming = Database::new("./output-streaming.db");
-    db_streaming.init()?;
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(ProgressStyle::default_spinner()
+        .template("{spinner:.green} [{elapsed_precise}] {pos} users processed {msg}").unwrap()
+    );
+
+    let mut db_streaming = SqliteAdapter::new("./output-streaming.db")?;
 
     let multi_reader = multi_extract_streaming(&paths, 1000)?;
 
@@ -72,9 +87,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .transform(generate_user)
         .filter(|user| user.is_valid().is_ok())
         .load(|users| {
-            db_streaming.insert_user(users)?;
+            spinner.inc(users.len() as u64);
+            spinner.set_message(format!("Loading... just added {}", users.len()));
+            db_streaming.write(users)?;
             Ok(())
         })?;
+
+    spinner.finish_with_message("Done!");
 
     println!("Streaming with DB: {:?}", time_start.elapsed());
     println!("Stat Streaming : {:?}", stats);

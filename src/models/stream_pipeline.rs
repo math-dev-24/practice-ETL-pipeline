@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use rayon::prelude::*;
 
 use crate::models::csv_reader::CsvReader;
@@ -83,7 +83,8 @@ where
 #[cfg(test)]
 mod test {
     use std::time::Instant;
-    use crate::storage::sqlite::Database;
+    use crate::adapter::storage_output::sqlite::SqliteAdapter;
+    use crate::models::output::OutputPort;
     use crate::utils::set_user::generate_user;
     use super::*;
 
@@ -94,23 +95,18 @@ mod test {
 
         let total_user: usize = 43000;
 
-        let db = Database::new("./output.db");
-        db.init()?;
+        let mut output_adapter = SqliteAdapter::new("./output.db")?;
 
         let stats = StreamingPipeline::extract_streaming("./src/data/data_1.csv", 1000)?
         .transform(generate_user)
         .filter(|user| user.is_valid().is_ok())
             .load(|users| {
                 println!("Inserting batch of {} users", users.len());
-                db.insert_user(users)?;
+                output_adapter.write(users)?;
                 Ok(())
             })?;
 
         assert_eq!(stats.total_filtered, total_user);
-
-        let total_user = db.get_all_users()?.len();
-
-        assert_eq!(total_user, total_user);
 
         println!("Finished in {}ms", start.elapsed().as_millis());
 

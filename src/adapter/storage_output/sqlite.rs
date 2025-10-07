@@ -1,17 +1,40 @@
+use std::error::Error;
+use crate::models::output::OutputPort;
 use crate::User;
 
-pub struct Database {
+pub struct SqliteAdapter {
+    db: Database,
+}
+
+impl SqliteAdapter {
+    pub fn new(path: &str) -> Result<Self, Box<dyn Error >> {
+        let db = Database::new(path);
+        db.init()?;
+        Ok(SqliteAdapter { db })
+    }
+}
+
+impl OutputPort<User> for SqliteAdapter {
+    fn write(&mut self, data: &[User]) -> Result<(), Box<dyn Error>> {
+        self.db.insert_user(data)?;
+        Ok(())
+    }
+}
+
+
+
+struct Database {
     conn: rusqlite::Connection,
 }
 
 impl Database {
-    pub fn new(path: &str) -> Self {
+    fn new(path: &str) -> Self {
         Database {
             conn: rusqlite::Connection::open(path).unwrap(),
         }
     }
 
-    pub fn init(&self) -> Result<(), rusqlite::Error> {
+    fn init(&self) -> Result<(), rusqlite::Error> {
         self.conn.execute(
             "CREATE TABLE IF NOT EXISTS users (
                     username TEXT NOT NULL,
@@ -24,7 +47,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn insert_user(&self, users: &[User]) -> Result<(), rusqlite::Error> {
+    fn insert_user(&self, users: &[User]) -> Result<(), rusqlite::Error> {
         let tx = self.conn.unchecked_transaction()?;
 
         for user in users {
@@ -44,7 +67,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_all_users(&self) -> Result<Vec<User>, rusqlite::Error> {
+    fn get_all_users(&self) -> Result<Vec<User>, rusqlite::Error> {
 
         let mut stmt = self.conn.prepare("SELECT * FROM users")?;
         let users_iter = stmt.query_map([], |row| {

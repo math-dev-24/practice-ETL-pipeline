@@ -1,9 +1,3 @@
-3. Progress bar
-
-Afficher une barre de progression pendant le traitement
-Crate indicatif pour ça
-Défi : comment mettre à jour une progress bar depuis plusieurs threads ?
-
 4. Output vers différents formats
 
 Actuellement tu charges vers SQLite
