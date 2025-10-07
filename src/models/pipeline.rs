@@ -9,6 +9,7 @@ pub struct PipelineStats {
     errors: Vec<String>
 }
 
+
 pub struct Pipeline<T> {
     pub data: Vec<T>,
     pub stats: PipelineStats
@@ -17,7 +18,6 @@ pub struct Pipeline<T> {
 impl Pipeline<csv::StringRecord> {
     pub fn extract(source: &str) -> Result<Self, Box<dyn std::error::Error>> {
         let mut reader = csv::ReaderBuilder::new()
-            .delimiter(b';')
             .from_path(source)?;
 
         let mut data = Vec::new();
@@ -50,7 +50,7 @@ impl Pipeline<csv::StringRecord> {
 
 
 impl<T: Send + Sync> Pipeline<T> {
-    pub fn transform<F, U>(self, f: F) -> Pipeline<U>
+    pub fn transform<F, U>(self, transform: F) -> Pipeline<U>
     where
         F: Fn(T) -> U + Sync + Send,
         T: Send,
@@ -58,7 +58,34 @@ impl<T: Send + Sync> Pipeline<T> {
     {
         let transformed: Vec<U> = self.data
             .into_par_iter()
-            .map(f)
+            .map(transform)
+            .collect();
+
+        let count = transformed.len();
+
+        Pipeline {
+            data: transformed,
+            stats: PipelineStats {
+                total_transformed: count,
+                ..self.stats
+            }
+        }
+    }
+
+    pub fn transform_if<F, P>(self, predicate: P, transform: F) -> Pipeline<T>
+    where
+        P: Fn(&T) -> bool + Sync + Send,
+        F: Fn(T) -> T + Sync + Send
+    {
+        let transformed: Vec<T> = self.data
+            .into_par_iter()
+            .map(|item| {
+                if predicate(&item) {
+                    transform(item)
+                } else {
+                    item
+                }
+            })
             .collect();
 
         let count = transformed.len();
