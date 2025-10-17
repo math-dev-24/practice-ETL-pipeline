@@ -17,7 +17,7 @@ impl User {
         } else if self.username.len() < 3 {
             errors.push(ValidationError::TooShort("username".into(), 2));
         } else if self.username.len() > 20 {
-            errors.push(ValidationError::TooLong("username".into(), 20));
+            errors.push(ValidationError::TooLong("username".into(), 10));
         }
 
         if errors.is_empty() {

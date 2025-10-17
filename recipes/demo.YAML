@@ -1,0 +1,15 @@
+name: "Demo recette"
+source:
+    format: "csv"
+    path: ["./src/data/data_1.csv", "./src/data/data_2.csv", "./src/data/data_3.csv", "./src/data/data_4.csv", "./src/data/data_5.csv"]
+
+steps:
+    - action: "transform"
+      value: "generate_user"
+
+    - action: "filter"
+      value: "is_valid"
+
+output:
+    format: "sqlite"
+    path: "./output_normal.db"

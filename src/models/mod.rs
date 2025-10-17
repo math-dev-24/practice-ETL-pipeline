@@ -5,3 +5,5 @@ pub mod csv_reader;
 pub mod stream_pipeline;
 pub mod csv_multi_reader;
 pub mod output;
+pub mod recipe_config;
+pub mod registry;

@@ -2,6 +2,8 @@ mod adapter;
 mod models;
 mod utils;
 
+use std::fs;
+use std::process::exit;
 use std::time::Instant;
 use indicatif::{ProgressBar, ProgressStyle};
 use crate::adapter::storage_output::sqlite::SqliteAdapter;
@@ -9,9 +11,17 @@ use crate::models::output::OutputPort;
 use crate::models::user::User;
 use crate::utils::capitalize::capitalize;
 use crate::utils::multi_extract::{multi_extract, multi_extract_streaming};
+use crate::utils::parse_yaml::parse_yaml;
 use crate::utils::set_user::generate_user;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    let recipe = parse_yaml("./recipes/demo.YAML")?;
+
+    let pipeline = recipe.execute()?;
+    println!("{:?}", pipeline.stats);
+
+    exit(1);
 
     let paths: Vec<&str> = vec![
         "./src/data/data_1.csv",
